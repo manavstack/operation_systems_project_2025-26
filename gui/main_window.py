@@ -36,6 +36,8 @@ class MainWindow:
         self.root.title("D-RTOS — Defense Radar Real-Time Operating System Simulator")
         self.root.geometry("1280x800")
         self.root.configure(bg=Colors.BG_DEEP)
+        self.root.bind_all("<Control-k>", self._focus_navigation_search)
+        self.root.bind_all("<Escape>", self._clear_navigation_search)
         
         apply_dark_titlebar(self.root)
         
@@ -116,6 +118,27 @@ class MainWindow:
                                        bg=Colors.BG_SIDEBAR, font=Fonts.MONO_SM)
         self.lbl_db_status.pack(side=tk.RIGHT, padx=10)
         
+        # Sidebar navigation
+        tk.Label(self.sidebar, text="NAVIGATION", anchor="w",
+                 fg=Colors.TEXT_DIM, bg=Colors.BG_SIDEBAR,
+                 font=Fonts.LABEL_SM).pack(fill=tk.X, padx=12, pady=(14, 5))
+
+        self._navigation_items = []
+        self.navigation_query = tk.StringVar()
+        self.navigation_search = tk.Entry(
+            self.sidebar, textvariable=self.navigation_query,
+            **Styles.entry()
+        )
+        self.navigation_search.pack(fill=tk.X, padx=8, pady=(0, 8), ipady=4)
+        self.navigation_search.insert(0, "Search views…")
+        self.navigation_search.configure(fg=Colors.TEXT_DIM)
+        self.navigation_search.bind("<FocusIn>", self._clear_search_hint)
+        self.navigation_search.bind("<FocusOut>", self._restore_search_hint)
+        self.navigation_query.trace_add("write", self._filter_navigation)
+
+        self.nav_list = tk.Frame(self.sidebar, bg=Colors.BG_SIDEBAR)
+        self.nav_list.pack(fill=tk.BOTH, expand=True)
+
         # Sidebar Menu Buttons
         self.menu_buttons: dict[str, tk.Button] = {}
         menu_items = [
@@ -136,12 +159,46 @@ class MainWindow:
             ("Settings", "🔧 Config Settings")
         ]
         
-        for view_name, display_text in menu_items:
-            btn = tk.Button(self.sidebar, text=display_text, anchor="w",
+        for row, (view_name, display_text) in enumerate(menu_items):
+            btn = tk.Button(self.nav_list, text=display_text, anchor="w",
+                            command=lambda name=view_name: self.show_view(name),
                             **Styles.button(bg=Colors.BG_SIDEBAR, fg=Colors.TEXT_SECONDARY))
-            btn.configure(command=lambda name=view_name: self.show_view(name))
-            btn.pack(fill=tk.X, padx=5, pady=2)
+            btn.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
             self.menu_buttons[view_name] = btn
+            self._navigation_items.append((view_name, display_text, btn, row))
+        self.nav_list.grid_columnconfigure(0, weight=1)
+        self._filter_navigation()
+
+    def _focus_navigation_search(self, _event=None):
+        self.navigation_search.focus_set()
+        return "break"
+
+    def _clear_search_hint(self, _event=None):
+        if self.navigation_search.get() == "Search views…":
+            self.navigation_search.delete(0, tk.END)
+            self.navigation_search.configure(fg=Colors.TEXT_PRIMARY)
+
+    def _restore_search_hint(self, _event=None):
+        if not self.navigation_search.get():
+            self.navigation_search.insert(0, "Search views…")
+            self.navigation_search.configure(fg=Colors.TEXT_DIM)
+
+    def _clear_navigation_search(self, _event=None):
+        if self.root.focus_get() == self.navigation_search:
+            self.navigation_search.delete(0, tk.END)
+            self.navigation_search.configure(fg=Colors.TEXT_PRIMARY)
+            self.navigation_search.focus_set()
+            return "break"
+
+    def _filter_navigation(self, *_args):
+        query = self.navigation_query.get().strip().lower()
+        if query == "search views…":
+            query = ""
+        for view_name, display_text, button, row in self._navigation_items:
+            if query in view_name.lower() or query in display_text.lower():
+                button.grid(row=row, column=0, sticky="ew", padx=5, pady=2)
+            else:
+                button.grid_remove()
             
     def _load_views(self):
         self.views = {
