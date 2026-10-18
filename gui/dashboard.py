@@ -76,18 +76,51 @@ class DashboardView(tk.Frame):
                                         **Styles.label(fg=Colors.TEXT_SECONDARY, font=Fonts.LABEL_SM))
         self.lbl_proc_states.pack(pady=10)
         
-        # Lower Section: Currently Executing Real-Time Process Card
-        self.card_active_proc = tk.Frame(self, bg=Colors.BG_PANEL, bd=1, relief="solid", highlightbackground=Colors.BORDER)
-        self.card_active_proc.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        # Lower Section: critical process status and frequently used destinations
+        self.lower_panel = tk.Frame(self, bg=Colors.BG_DEEP)
+        self.lower_panel.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+
+        self.card_active_proc = tk.Frame(self.lower_panel, bg=Colors.BG_PANEL, bd=1, relief="solid", highlightbackground=Colors.BORDER)
+        self.card_active_proc.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 8), pady=5)
         
         lbl_ap_title = tk.Label(self.card_active_proc, text="CURRENTLY EXECUTING CRITICAL PROCESS", **Styles.label(fg=Colors.ALERT_RED, font=Fonts.SUBHEADER))
         lbl_ap_title.pack(anchor="w", padx=15, pady=10)
         
         self.lbl_ap_details = tk.Label(self.card_active_proc, text="NO ACTIVE CRITICAL THREATS IN FLIGHT",
                                        **Styles.label(fg=Colors.TEXT_SECONDARY, font=Fonts.MONO_LG))
-        self.lbl_ap_details.pack(pady=30)
+        self.lbl_ap_details.pack(pady=20)
+
+        self.card_quick = tk.Frame(self.lower_panel, bg=Colors.BG_PANEL, bd=1, relief="solid", highlightbackground=Colors.BORDER, width=250)
+        self.card_quick.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 5), pady=5)
+        self.card_quick.pack_propagate(False)
+        tk.Label(self.card_quick, text="QUICK ACCESS", **Styles.label(fg=Colors.HUD_CYAN, font=Fonts.SUBHEADER)).pack(anchor="w", padx=14, pady=(14, 4))
+        tk.Label(self.card_quick, text="Jump to a common workflow", **Styles.label(fg=Colors.TEXT_SECONDARY, font=Fonts.LABEL_SM)).pack(anchor="w", padx=14, pady=(0, 10))
+
+        shortcuts = [
+            ("📡  Open Radar Scope", "Radar Simulation"),
+            ("🎮  Run a Scenario", "Scenario Runner"),
+            ("🎛️  Compare Schedulers", "CPU Scheduler"),
+            ("📈  View Performance", "Performance"),
+        ]
+        for label, destination in shortcuts:
+            tk.Button(
+                self.card_quick, text=label, anchor="w",
+                command=lambda name=destination: self.main_window.show_view(name),
+                **Styles.button(bg=Colors.BG_INPUT, fg=Colors.TEXT_PRIMARY)
+            ).pack(fill=tk.X, padx=12, pady=4)
+
+        tk.Frame(self.card_quick, bg=Colors.BORDER, height=1).pack(fill=tk.X, padx=12, pady=(12, 8))
+        tk.Label(self.card_quick, text="SIMULATION CLOCK", **Styles.label(fg=Colors.TEXT_DIM, font=Fonts.LABEL_SM)).pack(anchor="w", padx=14, pady=(0, 5))
+        self.lbl_sim_time = tk.Label(self.card_quick, text="0.0 s", **Styles.label(fg=Colors.HUD_CYAN, font=Fonts.VALUE_LG))
+        self.lbl_sim_time.pack(anchor="w", padx=14)
+        self.lbl_tick = tk.Label(self.card_quick, text="TICK 0000", **Styles.label(fg=Colors.TEXT_SECONDARY, font=Fonts.MONO_SM))
+        self.lbl_tick.pack(anchor="w", padx=14, pady=(3, 10))
         
     def update_view(self):
+        sim_time = self.main_window.multicore_mgr.simulation_time
+        self.lbl_sim_time.configure(text=f"{sim_time:.1f} s")
+        self.lbl_tick.configure(text=f"TICK {self.main_window.tick_counter:04d}")
+
         # 1. Update Threat Gauges
         counts = self.main_window.simulator.counts_by_threat()
         friendly = sum(1 for o in self.main_window.simulator.detected_objects if "Friendly" in o.object_type or "Weather" in o.object_type)
