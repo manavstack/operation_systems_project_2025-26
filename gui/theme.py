@@ -13,51 +13,51 @@ from typing import Dict, Any
 
 class Colors:
     # Backgrounds
-    BG_DEEP    = "#090E1A"    # Main canvas background
-    BG_PANEL   = "#111827"    # Panel / card background
-    BG_SIDEBAR = "#0D1525"    # Sidebar navigation
-    BG_HEADER  = "#0A1020"    # Header bar
-    BG_INPUT   = "#1A2540"    # Input fields
-    BG_TABLE   = "#141E30"    # Table background
-    BG_ROW_ALT = "#1A2540"    # Alternating table row
-    BG_HOVER   = "#1E2F50"    # Hover state
+    BG_DEEP    = "#0B1220"    # Main canvas background
+    BG_PANEL   = "#111B2D"    # Panel / card background
+    BG_SIDEBAR = "#0D1728"    # Sidebar navigation
+    BG_HEADER  = "#0A1220"    # Header bar
+    BG_INPUT   = "#18253A"    # Input fields
+    BG_TABLE   = "#101B2D"    # Table background
+    BG_ROW_ALT = "#16243A"    # Alternating table row
+    BG_HOVER   = "#1B3550"    # Hover state
 
     # Accent Colors
-    RADAR_GREEN   = "#00FF66"  # Primary radar accent
-    HUD_CYAN      = "#00E5FF"  # HUD/info accent
-    AMBER_WARN    = "#FFB300"  # Warning indicator
-    ALERT_RED     = "#FF3366"  # Alert/critical indicator
-    PURPLE_ACCENT = "#7B5EA7"  # Secondary accent
+    RADAR_GREEN   = "#45D483"  # Primary radar accent
+    HUD_CYAN      = "#47D7E8"  # HUD/info accent
+    AMBER_WARN    = "#F3B84C"  # Warning indicator
+    ALERT_RED     = "#F06476"  # Alert/critical indicator
+    PURPLE_ACCENT = "#9B86D3"  # Secondary accent
     BLUE_ACCENT   = "#3B82F6"  # Informational blue
 
     # Text
     TEXT_PRIMARY   = "#E8F4FD"  # Main text
-    TEXT_SECONDARY = "#8BA3C7"  # Secondary / muted text
-    TEXT_DIM       = "#4A6080"  # Dimmed text / labels
-    TEXT_ACCENT    = "#00E5FF"  # Highlighted text
+    TEXT_SECONDARY = "#9AAEC8"  # Secondary / muted text
+    TEXT_DIM       = "#70839F"  # Dimmed text / labels
+    TEXT_ACCENT    = "#47D7E8"  # Highlighted text
 
     # Threat Level Colors
-    CRITICAL = "#FF3366"
-    HIGH     = "#FF6B35"
-    MEDIUM   = "#FFB300"
-    LOW      = "#00FF66"
+    CRITICAL = "#F06476"
+    HIGH     = "#F28A54"
+    MEDIUM   = "#F3B84C"
+    LOW      = "#45D483"
 
     # Process State Colors
-    STATE_NEW        = "#7B5EA7"
-    STATE_READY      = "#3B82F6"
-    STATE_RUNNING    = "#00FF66"
-    STATE_WAITING    = "#FFB300"
-    STATE_TERMINATED = "#4A6080"
+    STATE_NEW        = "#9B86D3"
+    STATE_READY      = "#5D9CEC"
+    STATE_RUNNING    = "#45D483"
+    STATE_WAITING    = "#F3B84C"
+    STATE_TERMINATED = "#60738F"
 
     # Chart Colors
     CHART_PALETTE = [
-        "#00E5FF", "#00FF66", "#FFB300", "#FF3366",
-        "#7B5EA7", "#3B82F6", "#FF6B35", "#00BFA5",
+        "#47D7E8", "#45D483", "#F3B84C", "#F06476",
+        "#9B86D3", "#5D9CEC", "#F28A54", "#4CC9B0",
     ]
 
     # Border
-    BORDER       = "#1E3A5F"
-    BORDER_LIGHT = "#2A4A6F"
+    BORDER       = "#243650"
+    BORDER_LIGHT = "#344D6B"
 
     @classmethod
     def for_threat(cls, threat: str) -> str:
@@ -140,6 +140,7 @@ class Styles:
             "font": Fonts.LABEL_MD,
             "relief": "flat",
             "bd": 0,
+            "overrelief": "flat",
             "padx": 12,
             "pady": 6,
             "cursor": "hand2",
@@ -189,15 +190,40 @@ class Styles:
                                  foreground=Colors.TEXT_PRIMARY,
                                  fieldbackground=Colors.BG_TABLE,
                                  font=Fonts.MONO_SM,
-                                 rowheight=24)
+                                 rowheight=30,
+                                 borderwidth=0)
             style_obj.configure("Custom.Treeview.Heading",
                                  background=Colors.BG_SIDEBAR,
                                  foreground=Colors.HUD_CYAN,
                                  font=Fonts.TITLE,
-                                 relief="flat")
+                                 relief="flat",
+                                 padding=(10, 8))
             style_obj.map("Custom.Treeview",
                            background=[("selected", Colors.BG_HOVER)],
                            foreground=[("selected", Colors.TEXT_PRIMARY)])
+            style_obj.configure("TCombobox",
+                                 fieldbackground=Colors.BG_INPUT,
+                                 background=Colors.BG_INPUT,
+                                 foreground=Colors.TEXT_PRIMARY,
+                                 arrowcolor=Colors.HUD_CYAN,
+                                 bordercolor=Colors.BORDER,
+                                 lightcolor=Colors.BORDER,
+                                 darkcolor=Colors.BORDER,
+                                 padding=6)
+            style_obj.map("TCombobox",
+                           fieldbackground=[("readonly", Colors.BG_INPUT), ("focus", Colors.BG_HOVER)],
+                           foreground=[("readonly", Colors.TEXT_PRIMARY)])
+            style_obj.configure("TScrollbar",
+                                 background=Colors.BG_INPUT,
+                                 troughcolor=Colors.BG_DEEP,
+                                 bordercolor=Colors.BG_DEEP,
+                                 arrowcolor=Colors.TEXT_SECONDARY)
+            style_obj.configure("Horizontal.TProgressbar",
+                                 troughcolor=Colors.BG_INPUT,
+                                 background=Colors.HUD_CYAN,
+                                 bordercolor=Colors.BG_INPUT,
+                                 lightcolor=Colors.HUD_CYAN,
+                                 darkcolor=Colors.HUD_CYAN)
         except Exception:
             pass
 

@@ -35,6 +35,7 @@ class MainWindow:
         self.root = root
         self.root.title("D-RTOS — Defense Radar Real-Time Operating System Simulator")
         self.root.geometry("1280x800")
+        self.root.minsize(1050, 680)
         self.root.configure(bg=Colors.BG_DEEP)
         self.root.bind_all("<Control-k>", self._focus_navigation_search)
         self.root.bind_all("<Escape>", self._clear_navigation_search)
@@ -75,10 +76,27 @@ class MainWindow:
         self.style = ttk.Style()
         self.style.theme_use("clam")
         Styles.treeview_style(self.style)
+        self.root.bind_class("Button", "<Enter>", self._button_hover, add="+")
+        self.root.bind_class("Button", "<Leave>", self._button_unhover, add="+")
+
+    @staticmethod
+    def _button_hover(event):
+        button = event.widget
+        if button.cget("state") == tk.DISABLED:
+            return
+        button._resting_background = button.cget("bg")
+        button.configure(bg=button.cget("activebackground"))
+
+    @staticmethod
+    def _button_unhover(event):
+        button = event.widget
+        resting = getattr(button, "_resting_background", None)
+        if resting is not None:
+            button.configure(bg=resting)
         
     def _build_layout(self):
         # 1. Header Bar
-        self.header = tk.Frame(self.root, bg=Colors.BG_HEADER, height=50)
+        self.header = tk.Frame(self.root, bg=Colors.BG_HEADER, height=58)
         self.header.pack(side=tk.TOP, fill=tk.X)
         self.header.pack_propagate(False)
         
@@ -86,6 +104,11 @@ class MainWindow:
                              fg=Colors.HUD_CYAN, bg=Colors.BG_HEADER,
                              font=Fonts.HEADER)
         lbl_title.pack(side=tk.LEFT, padx=15, pady=5)
+
+        self.lbl_current_view = tk.Label(self.header, text="DASHBOARD",
+                                          fg=Colors.TEXT_SECONDARY, bg=Colors.BG_HEADER,
+                                          font=Fonts.LABEL_SM)
+        self.lbl_current_view.pack(side=tk.RIGHT, padx=(12, 18), pady=10)
         
         self.lbl_session = tk.Label(self.header, text=f"SESSION: {self.current_session_id}",
                                      fg=Colors.TEXT_SECONDARY, bg=Colors.BG_HEADER,
@@ -96,7 +119,7 @@ class MainWindow:
         self.container = tk.Frame(self.root, bg=Colors.BG_DEEP)
         self.container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        self.sidebar = tk.Frame(self.container, bg=Colors.BG_SIDEBAR, width=200)
+        self.sidebar = tk.Frame(self.container, bg=Colors.BG_SIDEBAR, width=220)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         self.sidebar.pack_propagate(False)
         
@@ -104,11 +127,11 @@ class MainWindow:
         self.viewport.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # 3. Status Bar
-        self.statusbar = tk.Frame(self.root, bg=Colors.BG_SIDEBAR, height=25)
+        self.statusbar = tk.Frame(self.root, bg=Colors.BG_SIDEBAR, height=30)
         self.statusbar.pack(side=tk.BOTTOM, fill=tk.X)
         self.statusbar.pack_propagate(False)
         
-        self.lbl_status = tk.Label(self.statusbar, text="RADAR STATUS: ACTIVE",
+        self.lbl_status = tk.Label(self.statusbar, text="SYSTEM ONLINE  •  SIM 0.0s  •  TICK 0000",
                                     fg=Colors.RADAR_GREEN, bg=Colors.BG_SIDEBAR,
                                      font=Fonts.MONO_SM)
         self.lbl_status.pack(side=tk.LEFT, padx=10)
@@ -220,6 +243,7 @@ class MainWindow:
         }
         
     def show_view(self, name: str):
+        self.lbl_current_view.configure(text=name.upper())
         for view_name, view_obj in self.views.items():
             if view_name == name:
                 view_obj.pack(fill=tk.BOTH, expand=True)
@@ -237,6 +261,13 @@ class MainWindow:
         # Advance multicore simulator by 1 tick
         self.multicore_mgr.tick(1.0)
         self.tick_counter += 1
+        self.lbl_status.configure(
+            text=f"SYSTEM ONLINE  •  SIM {self.multicore_mgr.simulation_time:.1f}s  •  TICK {self.tick_counter:04d}"
+        )
+        self.lbl_db_status.configure(
+            text=f"DATABASE: {self.db_service.status}",
+            fg=Colors.HUD_CYAN if self.db_service.connected else Colors.AMBER_WARN
+        )
         
         # Core CPU utilization & metric calculation
         active_processes = self.process_manager.get_all_active()
