@@ -52,6 +52,9 @@ class SchedulerView(tk.Frame):
         
         self.gantt_canvas = tk.Canvas(self.gantt_frame, bg=Colors.BG_DEEP, height=180, highlightthickness=0)
         self.gantt_canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.gantt_canvas.create_text(400, 90, text="Run a scheduler to see the execution timeline.",
+                                      fill=Colors.TEXT_SECONDARY, font=Fonts.LABEL_MD,
+                                      tags="empty")
         
         # Metrics Table Panel
         self.metrics_frame = tk.Frame(self, bg=Colors.BG_PANEL, bd=1, relief="solid", highlightbackground=Colors.BORDER)
@@ -73,7 +76,12 @@ class SchedulerView(tk.Frame):
         for col in ("algo", "avg_wait", "avg_turn", "avg_resp", "util", "tp", "cs"):
             self.tree_metrics.column(col, width=120, anchor="center")
             
-        self.tree_metrics.pack(fill=tk.X, padx=10, pady=10)
+        xscroll = ttk.Scrollbar(self.metrics_frame, orient="horizontal", command=self.tree_metrics.xview)
+        self.tree_metrics.configure(xscrollcommand=xscroll.set)
+        self.tree_metrics.pack(fill=tk.X, padx=10, pady=(10, 0))
+        xscroll.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.empty_table = Styles.empty_state(self.metrics_frame, "No scheduling results yet. Run a scheduler comparison.")
+        Styles.prepare_tree(self.tree_metrics)
         
     def _run_scheduler(self):
         # We fetch all ready processes and duplicate them for a batch run demo
@@ -88,7 +96,13 @@ class SchedulerView(tk.Frame):
         try:
             q = float(self.ent_q.get())
         except ValueError:
-            q = 2.0
+            messagebox.showerror("Invalid Quantum", "Time quantum must be a number greater than zero.")
+            self.main_window.show_feedback("Invalid time quantum", "error")
+            return
+        if q <= 0:
+            messagebox.showerror("Invalid Quantum", "Time quantum must be greater than zero.")
+            self.main_window.show_feedback("Time quantum must be greater than zero", "error")
+            return
             
         # Execute selected scheduling policy
         res = self.main_window.scheduler.run(algo, processes, q)
@@ -103,6 +117,7 @@ class SchedulerView(tk.Frame):
         # Update UI elements
         self._draw_gantt(res)
         self._populate_metrics()
+        self.main_window.show_feedback(f"{algo} scheduling run complete", "success")
         
     def _draw_gantt(self, result):
         self.gantt_canvas.delete("all")
@@ -113,7 +128,14 @@ class SchedulerView(tk.Frame):
             
         gantt = result.gantt
         if not gantt:
+            self.gantt_canvas.create_text(
+                self.gantt_canvas.winfo_width() / 2,
+                self.gantt_canvas.winfo_height() / 2,
+                text="No execution timeline was produced.",
+                fill=Colors.TEXT_SECONDARY, font=Fonts.LABEL_MD
+            )
             return
+        self.gantt_canvas.delete("empty")
             
         # Determine total simulation time span
         total_span = result.total_time
@@ -162,11 +184,13 @@ class SchedulerView(tk.Frame):
     def _populate_metrics(self):
         self.tree_metrics.delete(*self.tree_metrics.get_children())
         rows = self.main_window.perf_mgr.summary_table()
-        for r in rows:
+        for index, r in enumerate(rows):
+            tags = ("alternate",) if index % 2 else ()
             self.tree_metrics.insert("", "end", values=(
                 r["Algorithm"], r["Avg Wait"], r["Avg Turnaround"], r["Avg Response"],
                 r["CPU Util%"], r["Throughput"], r["Context Switches"]
-            ))
+            ), tags=tags)
+        Styles.update_empty_state(self.tree_metrics, self.empty_table)
             
     def update_view(self):
         self._populate_metrics()

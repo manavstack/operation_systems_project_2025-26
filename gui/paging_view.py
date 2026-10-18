@@ -79,17 +79,28 @@ class PagingView(tk.Frame):
         # Matplotlib chart comparing faults
         self.chart_container = tk.Frame(self.page_sim_panel, bg=Colors.BG_DEEP, height=180)
         self.chart_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.lbl_chart_empty = tk.Label(
+            self.chart_container, text="Run a reference string to compare FIFO and LRU.",
+            **Styles.label(fg=Colors.TEXT_SECONDARY, bg=Colors.BG_DEEP)
+        )
+        self.lbl_chart_empty.place(relx=0.5, rely=0.5, anchor="center")
         
     def _translate_address(self):
         pid = self.cb_pids.get()
         if not pid:
             messagebox.showwarning("Paging Manager", "No active processes available for address lookup. Generate some blips first.")
+            self.main_window.show_feedback("No active process to translate", "warning")
             return
             
         try:
             addr = int(self.ent_log_addr.get())
         except ValueError:
             messagebox.showerror("Validation Error", "Logical Address must be numeric.")
+            self.main_window.show_feedback("Logical address must be a whole number", "error")
+            return
+        if addr < 0:
+            messagebox.showerror("Validation Error", "Logical Address cannot be negative.")
+            self.main_window.show_feedback("Logical address cannot be negative", "error")
             return
             
         # Allocate page translation mock
@@ -118,21 +129,34 @@ class PagingView(tk.Frame):
                 self.lbl_trans_result.configure(text="PAGE FAULT: Physical Memory Full", fg=Colors.ALERT_RED)
                 
         self.main_window.views["Memory Manager"].update_view()
+        if res:
+            self.main_window.show_feedback(f"Translated address for {pid}", "success")
+        else:
+            self.main_window.show_feedback("Translation failed: physical memory is full", "error")
         
     def _run_page_test(self):
-        ref_str = [int(x) for x in self.ent_ref.get().split() if x.isdigit()]
+        tokens = self.ent_ref.get().split()
         try:
+            ref_str = [int(x) for x in tokens]
             frames = int(self.ent_frames.get())
         except ValueError:
-            frames = 3
+            messagebox.showerror("Invalid Test Input", "Use whole numbers for the reference string and frame count.")
+            self.main_window.show_feedback("Reference string and frames must use whole numbers", "error")
+            return
             
-        if not ref_str:
-            messagebox.showwarning("Validation Error", "Please provide a valid reference string separated by spaces.")
+        if not ref_str or any(page < 0 for page in ref_str):
+            messagebox.showwarning("Validation Error", "Enter one or more non-negative page numbers separated by spaces.")
+            self.main_window.show_feedback("Enter non-negative page numbers", "error")
+            return
+        if frames <= 0:
+            messagebox.showwarning("Validation Error", "Physical frame count must be greater than zero.")
+            self.main_window.show_feedback("Frame count must be greater than zero", "error")
             return
             
         # Run FIFO & LRU replacement algorithms
         comp = self.main_window.paging_mgr.compare_algorithms(ref_str, frames)
         self._plot_page_faults(comp["fifo"]["page_faults"], comp["lru"]["page_faults"])
+        self.main_window.show_feedback("FIFO and LRU comparison complete", "success")
         
     def _plot_page_faults(self, fifo_faults: int, lru_faults: int):
         for widget in self.chart_container.winfo_children():

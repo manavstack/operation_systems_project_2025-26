@@ -5,7 +5,7 @@ The central dashboard controller managing navigation, status bar, and page trans
 
 from __future__ import annotations
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import time
 import threading
 
@@ -135,6 +135,11 @@ class MainWindow:
                                     fg=Colors.RADAR_GREEN, bg=Colors.BG_SIDEBAR,
                                      font=Fonts.MONO_SM)
         self.lbl_status.pack(side=tk.LEFT, padx=10)
+
+        self.lbl_feedback = tk.Label(self.statusbar, text="READY",
+                                      fg=Colors.TEXT_SECONDARY, bg=Colors.BG_SIDEBAR,
+                                      font=Fonts.MONO_SM)
+        self.lbl_feedback.pack(side=tk.LEFT, padx=18)
         
         self.lbl_db_status = tk.Label(self.statusbar, text=f"DATABASE: {self.db_service.status}",
                                        fg=Colors.HUD_CYAN if self.db_service.connected else Colors.AMBER_WARN,
@@ -252,6 +257,24 @@ class MainWindow:
             else:
                 view_obj.pack_forget()
                 self.menu_buttons[view_name].configure(bg=Colors.BG_SIDEBAR, fg=Colors.TEXT_SECONDARY)
+
+    def show_feedback(self, message: str, level: str = "success"):
+        """Show brief, non-blocking feedback in the shared status bar."""
+        color = {
+            "success": Colors.RADAR_GREEN,
+            "warning": Colors.AMBER_WARN,
+            "error": Colors.ALERT_RED,
+            "info": Colors.HUD_CYAN,
+        }.get(level, Colors.TEXT_SECONDARY)
+        self.lbl_feedback.configure(text=message[:72], fg=color)
+        marker = object()
+        self._feedback_marker = marker
+
+        def clear_feedback():
+            if getattr(self, "_feedback_marker", None) == marker:
+                self.lbl_feedback.configure(text="READY", fg=Colors.TEXT_SECONDARY)
+
+        self.root.after(5000, clear_feedback)
                 
     def _tick_loop(self):
         """Simulates periodic OS interrupts, ticks cores, updates views."""
@@ -345,11 +368,12 @@ class MainWindow:
         self.perf_mgr.reset()
         self.current_session_id = self.db_service.create_session()
         self.lbl_session.configure(text=f"SESSION: {self.current_session_id}")
-        messagebox.showinfo("D-RTOS", "Simulation state has been fully reset. New session started.")
         self.show_view("Dashboard")
+        self.show_feedback("Simulation reset; new session started", "info")
         
     def on_closing(self):
         self.is_running = False
+        self.simulator.stop_auto()
         stats = self.perf_mgr.get_final_stats()
         self.db_service.close_session(self.current_session_id, stats)
         self.root.destroy()

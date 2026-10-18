@@ -89,6 +89,11 @@ class MemoryView(tk.Frame):
             size = int(self.ent_size.get())
         except ValueError:
             messagebox.showerror("Validation Error", "Size must be an integer.")
+            self.main_window.show_feedback("Memory size must be a whole number", "error")
+            return
+        if size <= 0:
+            messagebox.showerror("Validation Error", "Size must be greater than zero.")
+            self.main_window.show_feedback("Memory size must be greater than zero", "error")
             return
             
         start = self.main_window.memory_mgr.allocate(pid, f"Manual-{pid}", size)
@@ -105,8 +110,10 @@ class MemoryView(tk.Frame):
         
         self.update_view()
         if start is not None:
+            self.main_window.show_feedback(f"Allocated {size} MB to {pid}", "success")
             messagebox.showinfo("Memory Manager", f"Successfully allocated {size} MB at address {start} MB.")
         else:
+            self.main_window.show_feedback(f"Could not allocate {size} MB to {pid}", "error")
             messagebox.showerror("Allocation Failed", "Out of Memory (No contiguous block fits requirements). Try running deallocation.")
             
     def _draw_mem_map(self):

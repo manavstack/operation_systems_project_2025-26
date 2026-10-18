@@ -40,10 +40,17 @@ class HistoryView(tk.Frame):
             self.tree_hist.column(col, width=150, anchor="center")
             
         scroll = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree_hist.yview)
-        self.tree_hist.configure(yscrollcommand=scroll.set)
+        xscroll = ttk.Scrollbar(self.table_frame, orient="horizontal", command=self.tree_hist.xview)
+        self.tree_hist.configure(yscrollcommand=scroll.set, xscrollcommand=xscroll.set)
         
         self.tree_hist.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10,0), pady=10)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=10, padx=(0,10))
+        xscroll.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 8))
+        self.empty_table = Styles.empty_state(
+            self.table_frame,
+            "No saved sessions found.\nRun a simulation, then refresh the history."
+        )
+        Styles.prepare_tree(self.tree_hist)
         
         # Compare selection action buttons
         self.btn_refresh = tk.Button(self, text="🔄 Refresh Database Log", 
@@ -83,16 +90,22 @@ class HistoryView(tk.Frame):
                 f"Page Faults          : {last.get('page_faults', 0)}\n"
             )
         messagebox.showinfo("Session Stats Summary", msg)
+        self.main_window.show_feedback(f"Loaded summary for session {session_id}", "info")
         
     def update_view(self):
         self.tree_hist.delete(*self.tree_hist.get_children())
         history = self.main_window.db_service.get_session_history()
-        for h in history:
+        for index, h in enumerate(history):
+            status = h.get("status", "ACTIVE").upper()
+            tags = [status]
+            if index % 2:
+                tags.insert(0, "alternate")
             self.tree_hist.insert("", "end", values=(
                 h.get("session_id", "?"),
                 h.get("start_datetime", "?")[:19].replace("T", " "),
                 h.get("end_datetime", "Active Session")[:19].replace("T", " "),
                 h.get("radar_events", 0),
                 h.get("processes", 0),
-                h.get("status", "ACTIVE")
-            ))
+                status
+            ), tags=tuple(tags))
+        Styles.update_empty_state(self.tree_hist, self.empty_table)

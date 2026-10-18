@@ -4,6 +4,7 @@ Tactical dark Command-Center color palette and widget styles.
 """
 
 from __future__ import annotations
+import tkinter as tk
 from typing import Dict, Any
 
 
@@ -226,6 +227,40 @@ class Styles:
                                  darkcolor=Colors.HUD_CYAN)
         except Exception:
             pass
+
+    @staticmethod
+    def prepare_tree(tree) -> None:
+        """Add shared semantic colors for threat, process, and deadline rows."""
+        for name, color in (
+            ("CRITICAL", Colors.CRITICAL), ("HIGH", Colors.HIGH),
+            ("MEDIUM", Colors.MEDIUM), ("LOW", Colors.LOW),
+            ("NEW", Colors.STATE_NEW), ("READY", Colors.STATE_READY),
+            ("RUNNING", Colors.STATE_RUNNING), ("WAITING", Colors.STATE_WAITING),
+            ("TERMINATED", Colors.STATE_TERMINATED),
+            ("MISSED", Colors.ALERT_RED), ("WARNING", Colors.AMBER_WARN),
+            ("SAFE", Colors.RADAR_GREEN), ("MET", Colors.RADAR_GREEN),
+            ("ACTIVE", Colors.RADAR_GREEN), ("CLOSED", Colors.TEXT_SECONDARY),
+        ):
+            tree.tag_configure(name, foreground=color)
+        tree.tag_configure("alternate", background=Colors.BG_ROW_ALT)
+
+    @staticmethod
+    def empty_state(parent, message: str):
+        """Create a centered message overlay for an empty table."""
+        label = tk.Label(parent, text=message, fg=Colors.TEXT_SECONDARY,
+                         bg=Colors.BG_PANEL, font=Fonts.LABEL_MD,
+                         justify="center", wraplength=360)
+        label.place(relx=0.5, rely=0.58, anchor="center")
+        label.lift()
+        return label
+
+    @staticmethod
+    def update_empty_state(tree, label) -> None:
+        if tree.get_children():
+            label.place_forget()
+        else:
+            label.place(relx=0.5, rely=0.58, anchor="center")
+            label.lift()
 
 
 # ============================================================

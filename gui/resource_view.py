@@ -42,7 +42,12 @@ class ResourceView(tk.Frame):
         for col in ("res", "total", "avail", "alloc", "util"):
             self.tree_inv.column(col, width=100, anchor="center")
             
-        self.tree_inv.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        xscroll = ttk.Scrollbar(self.inv_panel, orient="horizontal", command=self.tree_inv.xview)
+        self.tree_inv.configure(xscrollcommand=xscroll.set)
+        self.tree_inv.pack(fill=tk.BOTH, expand=True, padx=10, pady=(10, 0))
+        xscroll.pack(fill=tk.X, padx=10, pady=(0, 8))
+        self.empty_table = Styles.empty_state(self.inv_panel, "No resource inventory is available.")
+        Styles.prepare_tree(self.tree_inv)
         
         # Right side: Request builder
         self.req_panel = tk.Frame(self.split_frame, bg=Colors.BG_PANEL, width=420, bd=1, relief="solid", highlightbackground=Colors.BORDER)
@@ -92,7 +97,13 @@ class ResourceView(tk.Frame):
             try:
                 val = int(ent.get())
             except ValueError:
-                val = 0
+                messagebox.showerror("Invalid Resource Count", f"{name} must be a whole number.")
+                self.main_window.show_feedback(f"Invalid count for {name}", "error")
+                return
+            if val < 0:
+                messagebox.showerror("Invalid Resource Count", "Resource counts cannot be negative.")
+                self.main_window.show_feedback("Resource counts cannot be negative", "error")
+                return
             if val > 0:
                 request[name] = val
                 
@@ -112,8 +123,10 @@ class ResourceView(tk.Frame):
         
         self.update_view()
         if success:
+            self.main_window.show_feedback(f"Resources allocated to {pid}", "success")
             messagebox.showinfo("Allocation Success", f"Resources successfully allocated to Process {pid}.")
         else:
+            self.main_window.show_feedback(f"Request for {pid} was refused: capacity unavailable", "error")
             messagebox.showerror("Allocation Refused", "Insufficient system resource capacity to fulfill request.")
             
     def _release_resources(self):
@@ -134,18 +147,23 @@ class ResourceView(tk.Frame):
         
         self.update_view()
         if released:
+            self.main_window.show_feedback(f"Resources released by {pid}", "success")
             messagebox.showinfo("Resources Released", f"Successfully reclaimed resources: {released} from Process {pid}.")
         else:
+            self.main_window.show_feedback(f"No resources held by {pid}", "warning")
             messagebox.showinfo("Resource Manager", f"Process {pid} holds no active resource allocations.")
             
     def update_view(self):
         # Update Table list
         self.tree_inv.delete(*self.tree_inv.get_children())
-        for stats in self.main_window.resource_mgr.get_all_stats():
+        rows = self.main_window.resource_mgr.get_all_stats()
+        for index, stats in enumerate(rows):
+            tags = ("alternate",) if index % 2 else ()
             self.tree_inv.insert("", "end", values=(
                 stats["name"], stats["total"], stats["available"],
                 stats["allocated"], f"{stats['utilization']:.1f}%"
-            ))
+            ), tags=tags)
+        Styles.update_empty_state(self.tree_inv, self.empty_table)
             
         # Update PIDs dropdown
         pids = [p.pid for p in self.main_window.process_manager.get_all_active()]

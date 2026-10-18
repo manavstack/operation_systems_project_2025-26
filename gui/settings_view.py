@@ -6,6 +6,7 @@ Provides options for configuring the MongoDB URI connection, tick rates, and sim
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
+import math
 
 from gui.theme import Colors, Fonts, Styles
 
@@ -70,8 +71,10 @@ class SettingsView(tk.Frame):
             fg=Colors.HUD_CYAN if self.main_window.db_service.connected else Colors.AMBER_WARN
         )
         if self.main_window.db_service.connected:
+            self.main_window.show_feedback("Connected to MongoDB", "success")
             messagebox.showinfo("Database Config", "Successfully connected to MongoDB server.")
         else:
+            self.main_window.show_feedback("MongoDB unavailable; using in-memory storage", "warning")
             messagebox.showwarning("Database Config", "Failed to connect to MongoDB server. Falling back to local in-memory mock storage.")
             
     def _apply_ticks(self):
@@ -79,9 +82,15 @@ class SettingsView(tk.Frame):
             tick = float(self.ent_tick.get())
         except ValueError:
             messagebox.showerror("Validation Error", "Tick Size must be numeric.")
+            self.main_window.show_feedback("Tick interval must be a positive number", "error")
+            return
+        if not math.isfinite(tick) or tick <= 0:
+            messagebox.showerror("Validation Error", "Tick Size must be a finite number greater than zero.")
+            self.main_window.show_feedback("Tick interval must be greater than zero", "error")
             return
             
         self.main_window.simulation_tick_rate = tick
+        self.main_window.show_feedback(f"Tick interval set to {tick:g} seconds", "success")
         messagebox.showinfo("Sim Settings", f"Simulation tick rate successfully adjusted to {tick} seconds.")
         
     def _reset_sim(self):

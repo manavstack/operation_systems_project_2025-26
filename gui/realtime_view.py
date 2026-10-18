@@ -70,10 +70,17 @@ class RealTimeView(tk.Frame):
             self.tree.column(col, width=150, anchor="center")
             
         scroll = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
+        xscroll = ttk.Scrollbar(self.table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=scroll.set, xscrollcommand=xscroll.set)
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10,0), pady=10)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=10, padx=(0,10))
+        xscroll.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 8))
+        self.empty_table = Styles.empty_state(
+            self.table_frame,
+            "No active deadline-bound tasks.\nInject a target to start monitoring."
+        )
+        Styles.prepare_tree(self.tree)
         
     def update_view(self):
         # Update summary counters
@@ -95,10 +102,16 @@ class RealTimeView(tk.Frame):
         # Update live task list
         self.tree.delete(*self.tree.get_children())
         records = self.main_window.realtime_sched.get_records()
+        visible = 0
         for r in records:
             # Only display active ready/running processes
             if r.state in ("READY", "RUNNING"):
+                tags = [r.status.upper()]
+                if visible % 2:
+                    tags.insert(0, "alternate")
                 self.tree.insert("", "end", values=(
                     r.pid, r.priority, f"{r.deadline:.1f}",
                     f"{r.time_to_deadline:.1f}s", r.status
-                ))
+                ), tags=tuple(tags))
+                visible += 1
+        Styles.update_empty_state(self.tree, self.empty_table)

@@ -8,9 +8,6 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 import math
-import random
-import time
-import threading
 
 from gui.theme import Colors, Fonts, Styles
 
@@ -19,6 +16,7 @@ class RadarView(tk.Frame):
         super().__init__(parent, bg=Colors.BG_DEEP)
         self.main_window = main_window
         self.sweep_angle = 0
+        self._animation_job = None
         self._build_ui()
         self._start_scope_animation()
         
@@ -32,7 +30,7 @@ class RadarView(tk.Frame):
         self.canvas_scope.bind("<Configure>", self._resize_canvas)
         
         # 2. Right Side: Controls and Tracking Table
-        self.sidebar_frame = tk.Frame(self, bg=Colors.BG_PANEL, width=450, bd=1, relief="solid", highlightbackground=Colors.BORDER)
+        self.sidebar_frame = tk.Frame(self, bg=Colors.BG_PANEL, width=420, bd=1, relief="solid", highlightbackground=Colors.BORDER)
         self.sidebar_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
         self.sidebar_frame.pack_propagate(False)
         
@@ -43,6 +41,7 @@ class RadarView(tk.Frame):
         # Manual Object Injection Form
         frm_inj = tk.Frame(self.sidebar_frame, bg=Colors.BG_PANEL)
         frm_inj.pack(fill=tk.X, padx=10, pady=5)
+        frm_inj.grid_columnconfigure(1, weight=1)
         
         tk.Label(frm_inj, text="Type:", **Styles.label(fg=Colors.TEXT_SECONDARY)).grid(row=0, column=0, sticky="w", pady=2)
         self.cb_type = ttk.Combobox(frm_inj, values=[
@@ -83,6 +82,9 @@ class RadarView(tk.Frame):
         self.btn_auto = tk.Button(self.sidebar_frame, text="🟢 Start Radar Scanner", 
                                   **Styles.success_button(), command=self._toggle_auto)
         self.btn_auto.pack(fill=tk.X, padx=10, pady=5)
+        self.lbl_scanner_state = tk.Label(self.sidebar_frame, text="SCANNER STOPPED  •  0 TRACKS",
+                                          **Styles.label(fg=Colors.TEXT_SECONDARY, font=Fonts.MONO_SM))
+        self.lbl_scanner_state.pack(anchor="w", padx=12, pady=(2, 4))
         
         # Radar Detection Logs Table
         lbl_tbl = tk.Label(self.sidebar_frame, text="Live Target Detection Table", **Styles.label(fg=Colors.HUD_CYAN, font=Fonts.TITLE))
@@ -106,10 +108,14 @@ class RadarView(tk.Frame):
         self.tree.column("speed", width=80, anchor="center")
         
         scroll = ttk.Scrollbar(tbl_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
+        xscroll = ttk.Scrollbar(tbl_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=scroll.set, xscrollcommand=xscroll.set)
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        xscroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.empty_table = Styles.empty_state(tbl_frame, "No radar tracks yet.\nStart the scanner or inject a target.")
+        Styles.prepare_tree(self.tree)
         
     def _resize_canvas(self, event):
         self._redraw_scope()
@@ -166,17 +172,11 @@ class RadarView(tk.Frame):
                                           fill=color, font=Fonts.MONO_SM)
             
     def _start_scope_animation(self):
-        def _animate():
-            while self.main_window.is_running:
-                self.sweep_angle = (self.sweep_angle + 3) % 360
-                try:
-                    self._redraw_scope()
-                except Exception:
-                    pass
-                time.sleep(0.05)
-                
-        t = threading.Thread(target=_animate, daemon=True)
-        t.start()
+        if not self.main_window.is_running or not self.winfo_exists():
+            return
+        self.sweep_angle = (self.sweep_angle + 3) % 360
+        self._redraw_scope()
+        self._animation_job = self.after(50, self._start_scope_animation)
         
     def _toggle_auto(self):
         # Update simulator threat config
@@ -185,9 +185,12 @@ class RadarView(tk.Frame):
         if self.main_window.simulator.auto_running:
             self.main_window.simulator.stop_auto()
             self.btn_auto.configure(text="🟢 Start Radar Scanner", **Styles.success_button())
+            self.main_window.show_feedback("Radar scanner stopped", "info")
         else:
             self.main_window.simulator.start_auto(callback=self._handle_new_target)
             self.btn_auto.configure(text="🔴 Stop Radar Scanner", **Styles.danger_button())
+            self.main_window.show_feedback("Radar scanner started", "success")
+        self.update_view()
             
     def _handle_new_target(self, obj):
         # Convert radar target to OS Process
@@ -209,6 +212,11 @@ class RadarView(tk.Frame):
             speed = float(self.ent_speed.get())
         except ValueError:
             messagebox.showerror("Validation Error", "Distance and Speed must be numeric.")
+            self.main_window.show_feedback("Target values must be numeric", "error")
+            return
+        if not 0 < dist <= 300 or speed < 0:
+            messagebox.showerror("Validation Error", "Distance must be greater than 0 and at most 300 km; speed cannot be negative.")
+            self.main_window.show_feedback("Target values are outside the valid range", "error")
             return
             
         obj = self.main_window.simulator.generate_manual(
@@ -219,14 +227,25 @@ class RadarView(tk.Frame):
         )
         self._handle_new_target(obj)
         self.update_view()
+        self.main_window.show_feedback(f"Target {obj.object_id} injected", "success")
         messagebox.showinfo("Radar Injector", f"Fictional target {obj.object_id} successfully injected and PCB created.")
         
     def update_view(self):
         # Redraw list of blips in tree table
         self.tree.delete(*self.tree.get_children())
-        for obj in reversed(self.main_window.simulator.detected_objects):
+        objects = list(reversed(self.main_window.simulator.detected_objects))
+        for index, obj in enumerate(objects):
+            tags = [obj.threat_level.name]
+            if index % 2:
+                tags.insert(0, "alternate")
             self.tree.insert("", "end", values=(
                 obj.object_id, obj.object_type, obj.threat_level.name,
                 f"{obj.distance_km:.1f}", f"{obj.velocity_kmh:.0f}"
-            ))
+            ), tags=tuple(tags))
+        active = self.main_window.simulator.auto_running
+        self.lbl_scanner_state.configure(
+            text=f"SCANNER {'ACTIVE' if active else 'STOPPED'}  •  {len(objects)} TRACKS",
+            fg=Colors.RADAR_GREEN if active else Colors.TEXT_SECONDARY
+        )
+        Styles.update_empty_state(self.tree, self.empty_table)
         self._redraw_scope()

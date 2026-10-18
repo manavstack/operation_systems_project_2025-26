@@ -209,6 +209,7 @@ class ScenarioView(tk.Frame):
             self.main_window.db_service.save_process(pcb.to_dict())
             
         self.main_window.process_manager.admit_all_new()
+        self.main_window.show_feedback(f"Phase {self.current_phase} actions executed", "success")
         
         # Trigger custom actions per phase
         if self.current_phase == 3:
@@ -227,12 +228,14 @@ class ScenarioView(tk.Frame):
                 
         elif self.current_phase == 5:
             # Load sync screen
+            self.main_window.show_feedback("Synchronization walkthrough ready", "info")
             self.main_window.show_view("Synchronization")
             return
             
         elif self.current_phase == 6:
             # Setup Bankers demo state
             self.main_window.banker_algo.build_demo_state("drtos")
+            self.main_window.show_feedback("Banker's safety demo loaded", "success")
             self.main_window.show_view("Deadlock / Banker")
             return
             
@@ -244,6 +247,7 @@ class ScenarioView(tk.Frame):
             if procs:
                 res = self.main_window.scheduler.run_all(procs)
                 self.main_window.perf_mgr.record_all(res)
+            self.main_window.show_feedback("Performance walkthrough ready", "success")
             self.main_window.show_view("Performance")
             return
             
@@ -291,6 +295,7 @@ class ScenarioView(tk.Frame):
             self.main_window.banker_algo.build_demo_state("drtos" if char == "H" else "unsafe")
             
         self.main_window.show_view(target_view)
+        self.main_window.show_feedback(f"Scenario {char} loaded · opened {target_view}", "success")
         messagebox.showinfo("Scenario Stepper", f"Scenario {char} injected. Navigating to {target_view} view.")
         
     def update_view(self):

@@ -50,9 +50,16 @@ class ProcessView(tk.Frame):
         self.tree.column("state", width=100, anchor="center")
         
         scroll = ttk.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
+        xscroll = ttk.Scrollbar(self.table_frame, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=scroll.set, xscrollcommand=xscroll.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10,0), pady=10)
         scroll.pack(side=tk.RIGHT, fill=tk.Y, pady=10, padx=(0,10))
+        xscroll.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 8))
+        self.empty_table = Styles.empty_state(
+            self.table_frame,
+            "No active processes yet.\nInject a radar target or load a scenario."
+        )
+        Styles.prepare_tree(self.tree)
         
         # Bind double-click or select event to load detailed inspector
         self.tree.bind("<<TreeviewSelect>>", self._on_select_process)
@@ -67,6 +74,8 @@ class ProcessView(tk.Frame):
         
         self.txt_pcb = tk.Text(self.inspector_frame, **Styles.text_widget(), wrap=tk.WORD)
         self.txt_pcb.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.txt_pcb.insert("1.0", "Select a process row to inspect its PCB.")
+        self.txt_pcb.configure(state=tk.DISABLED)
         
         # Priority elevation utility
         self.ctrl_frame = tk.Frame(self.inspector_frame, bg=Colors.BG_PANEL)
@@ -131,6 +140,7 @@ class ProcessView(tk.Frame):
         self.main_window.process_manager.elevate_to_critical(self.selected_pid)
         self._load_pcb_details(self.selected_pid)
         self.update_view()
+        self.main_window.show_feedback(f"Priority elevated for {self.selected_pid}", "success")
         
     def _kill_selected(self):
         if not self.selected_pid:
@@ -152,16 +162,22 @@ class ProcessView(tk.Frame):
             self.txt_pcb.delete("1.0", tk.END)
             self.txt_pcb.config(state=tk.DISABLED)
             self.update_view()
+            self.main_window.show_feedback(f"Process {pcb.pid} terminated; resources reclaimed", "success")
             messagebox.showinfo("Process Control", f"Process {pcb.pid} terminated and resources reclaimed.")
             
     def update_view(self):
         self.tree.delete(*self.tree.get_children())
         # Populate active (non-terminated) processes
-        for p in self.main_window.process_manager.get_all_active():
+        processes = self.main_window.process_manager.get_all_active()
+        for index, p in enumerate(processes):
+            tags = [p.state.value.upper()]
+            if index % 2:
+                tags.insert(0, "alternate")
             self.tree.insert("", "end", values=(
                 p.pid, p.process_name, p.threat_level.name,
                 p.priority, f"{p.deadline:.1f}" if p.deadline else "None",
                 f"{p.memory_requirement} MB", p.state.value
-            ))
+            ), tags=tuple(tags))
+        Styles.update_empty_state(self.tree, self.empty_table)
         if self.selected_pid:
             self._load_pcb_details(self.selected_pid)
